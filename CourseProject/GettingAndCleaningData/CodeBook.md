@@ -8,19 +8,22 @@ Merges the training and the test sets to create one data set.
 1. Read X_train.txt, using read.table(..., header=FALSE), assgined as variable **X_train**. The dimension of X_train is 7352 x 561.
 2. Read y_train.txt, using read.table(..., header=FALSE), assgined as variable **y_train**. The dimension of y_train is 7352 x 1.
 3. Read X_test.txt,  using read.table(..., header=FALSE), assgined as variable **X_test**. The dimension of X_test is 2947 x 561.
-4. Read y_test.txt,  using read.table(..., header=FALSE), assgined as variable **y_test**. The dimension of y_test is 2947 x 561.
+4. Read y_test.txt,  using read.table(..., header=FALSE), assgined as variable **y_test**. The dimension of y_test is 2947 x 1.
+5. Read subject_train.txt,  using read.table(..., header=FALSE), assgined as variable **subject_train**. The dimension of y_test is 7352 x 1.
+6. Read subject_test.txt,  using read.table(..., header=FALSE), assgined as variable **subject_test**. The dimension of y_test is 2947 x 1.
 
-5. Column-bind X_train and y_train  using cbind(X_train, y_train), assigned as variable as **train_data**. The dimension of train_data is 7352 x 562.
-6. Column-bind X_test and y_test by using cbind(X_test, y_test), assigned as variable **test_data**. The dimension of test_data is 2947 x 562.
+7. Column-bind X_train, y_train and subject_train using cbind(X_train, y_train), assigned as variable as **train_data**. The dimension of train_data is 7352 x 563.
+8. Column-bind X_test and y_test by using cbind(X_test, y_test), assigned as variable **test_data**. The dimension of test_data is 2947 x 563.
 
-7. Row-bind train_data and test_data by using rbind(train_data, test_data), assigned as variable **data**. The dimension of data is 10299 x 562.
+9. Row-bind train_data and test_data by using rbind(train_data, test_data), assigned as variable **data**. The dimension of data is 10299 x 563.
 
 ### Step 2
 Extracts only the measurements on the mean and standard deviation for each measurement.
 1. Read feature.txt, using read.table(..., header=FALSE), assgined as variable **feature_names**. The dimension of feature_names is 561 x 2.
-2. According to README.txt, the 2nd column should contain all the column names to **data** except last column, which should be the label. Since there's no header configured in **feature_names**, we fetched the 2nd column as **feature_names$V2** and then append an additional column called "**Label**". I used the append() function as append(feature_names, "Label") and assign it to names(data).
-3. Using grep() function, selecting the columns that only have keyword "mean" or "std" or exactly "Label". The regular expression I used is "(.\*-mean.\*)|(.\*-std.\*)|Label". The result character vector is stored as variable **valid_feature_names**.
-4. Finally, subsetting **data** by only select the columns that in **valid_feature_names**. The result DataFrame is stored as variable **data_trimmed**. The dimension of data_trimmed is 10299 x 80.
+2. According to README.txt, the 2nd column should contain all the column names to **data** except last column, which should be the label. Since there's no header configured in **feature_names**, we fetched the 2nd column as **feature_names$V2** and then append an additional column called "**Activity**". I used the append() function as append(feature_names, "Label") and assign it to names(data).
+3. Since the last column records subject information. So I renamed the last column to be **Subject**.
+4. Using grep() function, selecting the columns that only have keyword "mean" or "std" or exactly "Label". The regular expression I used is "(.\*-mean.\*)|(.\*-std.\*)|Label". The result character vector is stored as variable **valid_feature_names**.
+5. Finally, subsetting **data** by only select the columns that in **valid_feature_names**. The result DataFrame is stored as variable **data_trimmed**. The dimension of data_trimmed is 10299 x 80.
 
 ### Step 3
 Uses descriptive activity names to name the activities in the data set.
@@ -37,7 +40,7 @@ Uses descriptive activity names to name the activities in the data set.
 Appropriately labels the data set with descriptive variable names.
 1. Read activity_labels.txt, using read.table(..., header=FALSE), assgined as variable **activity_labels_data**. The dimension of activity_labels_data is 6 x 2.
 2. Create a list such that the value is the 2nd column of activity_labels_data, a.k.a the descriptive label. The name of this list is the label in integer. The list is called *activity_labels_list*.
-3. Using sapply() on column *Label* such that it convert the label in integer to the descriptive factor based on the mapping between names of *activity_labels_list* and its values.
+3. Using sapply() on column *Activity* such that it convert the label in integer to the descriptive factor based on the mapping between names of *activity_labels_list* and its values.
 5. Using the function gsub() with the following order:
 	a. Replace all the string "std" to "StandardDeviation".
 	b. Replace all the string "meanFreq" to "WeightedAverage".
@@ -51,9 +54,10 @@ Appropriately labels the data set with descriptive variable names.
 
 ### Step 5
 From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
-1. The assumption I made to this step is taking a simple numeric average of every single feature column (excluding *Label*) in the dataset I mentioned earlier (*data_trimmed*), assigned as variable *tidy_data*.
-2. Rename all the columns by appending "AverageOf" on top. e.g. "TimeBodyAccelerationMeanX" will be "AverageOfTimeBodyAccelerationMeanX"
+1. Using group_by() and summarise_all() from the package **dplyr**, I split the dataframe by each **Activity** and each **Subject** and then generate the column mean for each column of the group. I add na.rm=TRUE to avoid generate NAs. The result dataframe is assigned as **tidy_data**.
+2. Rename all the columns by appending "AverageOf" on top. e.g. "TimeBodyAccelerationMeanX" will be "AverageOfTimeBodyAccelerationMeanX", except column *Activity* and *Subject*.
 3. The full set of feature names will be listed in the section **Feature Name List**
+4. Save the **tidy_data** data frame by using write.table(, row.names=FALSE).
 
 ## Feature Name List
 
