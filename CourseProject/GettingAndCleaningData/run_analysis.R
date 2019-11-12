@@ -95,3 +95,5 @@ tidy_data <- colMeans(sapply(data_trimmed[,names(data_trimmed) != 'Label'], as.n
 
 names(tidy_data) <- sapply(names(tidy_data), function(x) paste0("AverageOf", x))
 
+write.table(tidy_data, file="tidy_data.txt", row.names = FALSE)
+
