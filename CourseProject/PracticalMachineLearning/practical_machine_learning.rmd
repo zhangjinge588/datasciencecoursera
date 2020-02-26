@@ -1,0 +1,87 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Jinge Zhang"
+date: "2/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Overview
+
+In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The 5 ways are described as Class A,B,C,D and E, the meaning of each class is below:
+
+Class A means exactly according to the specification.
+Class B means throwing the elbows to the front.
+Class C means lifting the dumbbell only halfway.
+Class D means lowering the dumbbell only halfway.
+Class E throwing the hips to the front.
+
+We would build machine learning models to quantify how well they do it.
+
+### Load Data
+``` {r load data}
+raw_train <- read.csv('~/Desktop/pml-training.csv', row.names = 'X')
+raw_test  <- read.csv('~/Desktop/pml-testing.csv', row.names = 'X')
+
+dim(raw_train)
+dim(raw_test)
+
+```
+
+### Data Processing
+Given there're 100+ features to start with, it would be easier if we can throw out some "undefined" variables that majority of the records are NA's.
+For better prediction and avoid incorrect imputation, I'll remove the variables that are all NAs in test set.
+``` {r data processing}
+
+# Columns that all values are NA.
+all_na = function(x) all(is.na(raw_test[x]))
+all_na_v = Vectorize(all_na)(colnames(raw_test))
+columns_all_na = colnames(raw_test)[all_na_v]
+print ("The following features are removed because all the values in Test Dataset are NAs...")
+print (columns_all_na)
+
+filter_column_names = colnames(raw_test)[!all_na_v]
+filter_train <- raw_train[, !colnames(raw_train) %in% columns_all_na]
+filter_test <- raw_test[,filter_column_names]
+
+filter_train[!sapply(filter_train, is.factor)] = sapply(filter_train[!sapply(filter_train, is.factor)], as.numeric)
+filter_test[!sapply(filter_test, is.factor)] = sapply(filter_test[!sapply(filter_test, is.factor)], as.numeric)
+
+# Remove timestamp columns: raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp
+filter_train = filter_train[, !colnames(filter_train) %in% c("raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp")]
+filter_test = filter_test[, !colnames(filter_test) %in% c("raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp")]
+
+
+summary(filter_train)
+```
+
+### Construct Training Set and Validation Dataset
+
+Given the dataset contains 6 users' activities, we would like to sample our training set and validation set with equal proportion, so that a 70/30 split on training data and validation dataset will have training data with 70% records for user adelmo, 70% records for user charles and so forth, meanwhile having validation data with 30% records for each user.
+
+``` {r construct training set and validation set}
+library(caret)
+set.seed(110322)
+row_for_training = c()
+row_for_validation = c()
+for (user in unique(filter_train$user_name)) {
+  temp_filter_train = filter_train[filter_train$user_name == user,]
+  inTrain = createDataPartition(y=temp_filter_train$classe, p=0.7, list=FALSE)
+  
+  row_for_training = c(row_for_training, inTrain)
+  row_for_validation = c(row_for_validation, -inTrain)
+}
+
+training = filter_train[row_for_training,]
+validation = filter_train[row_for_validation,]
+
+```
+
+### Model Construction
+
+We start with basic Linear Regression model, using all variables.
+``` {r Simple Linear Regression}
+```
