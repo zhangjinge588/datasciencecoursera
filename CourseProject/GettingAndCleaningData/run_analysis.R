@@ -1,4 +1,6 @@
 
+library(dplyr)
+
 # Step 1.
 # Merges the training and the test sets to create one data set.
 X_train <- read.table("UCI HAR Dataset/train/X_train.txt", header = FALSE)
@@ -7,8 +9,11 @@ X_test <- read.table("UCI HAR Dataset/test/X_test.txt", header = FALSE)
 y_train <- read.table("UCI HAR Dataset/train/y_train.txt", header = FALSE)
 y_test <- read.table("UCI HAR Dataset/test/y_test.txt", header = FALSE)
 
-train_data <- cbind(X_train, y_train)
-test_data <- cbind(X_test, y_test)
+subject_train <- read.table("UCI HAR Dataset/train/subject_train.txt", header = FALSE)
+subject_test <- read.table("UCI HAR Dataset/test/subject_test.txt", header = FALSE)
+
+train_data <- cbind(X_train, y_train, subject_train)
+test_data <- cbind(X_test, y_test, subject_test)
 
 data <- rbind(train_data, test_data)
 
@@ -19,10 +24,10 @@ data <- rbind(train_data, test_data)
 
 feature_names <- read.table("UCI HAR Dataset/features.txt", header=FALSE)
 
-names(data) <- append(as.character(feature_names$V2), "Label")
+names(data) <- append(as.character(feature_names$V2), c("Activity", "Subject"))
 
 # Filter out columns that Not Measuring Mean or Standard Deviation.
-valid_feature_names <- names(data)[grep("(.*-mean.*)|(.*-std.*)|Label", names(data))]
+valid_feature_names <- names(data)[grep("(.*-mean.*)|(.*-std.*)|Activity|Subject", names(data))]
 
 data_trimmed <- data[, valid_feature_names]
 
@@ -65,7 +70,7 @@ activity_labels_list <- activity_labels_data$V2
 
 names(activity_labels_list) <- activity_labels_data$V1
 
-data_trimmed$Label <- sapply(data_trimmed$Label, function(x) activity_labels_list[x])
+data_trimmed$Activity <- sapply(data_trimmed$Activity, function(x) activity_labels_list[x])
 
 # Replace all the string "std" to "StandardDeviation".
 names(data_trimmed) <- gsub("std", "StandardDeviation", names(data_trimmed))
@@ -91,9 +96,11 @@ names(data_trimmed) <- gsub("-", "",names(data_trimmed))
 # From the data set in step 4, creates a second, independent tidy data set 
 # with the average of each variable for each activity and each subject.
 
-tidy_data <- colMeans(sapply(data_trimmed[,names(data_trimmed) != 'Label'], as.numeric), na.rm = TRUE)
+#tidy_data <- colMeans(sapply(data_trimmed[,names(data_trimmed) != 'Label'], as.numeric), na.rm = TRUE)
 
-names(tidy_data) <- sapply(names(tidy_data), function(x) paste0("AverageOf", x))
+tidy_data <- data_trimmed %>% group_by(Activity, Subject) %>% summarise_all(.funs = function(x) mean(x, na.rm=TRUE))
+
+names(tidy_data)[3:length(names(tidy_data))] <- sapply(names(tidy_data)[3:length(names(tidy_data))], function(x) paste0("AverageOf", x))
 
 write.table(tidy_data, file="tidy_data.txt", row.names = FALSE)
 
