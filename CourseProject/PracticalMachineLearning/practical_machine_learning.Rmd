@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=12, fig.height=20) 
 ```
 
 ### Overview
@@ -25,6 +26,7 @@ We would build machine learning models to quantify how well they do it.
 ``` {r load data}
 raw_train <- read.csv('~/Desktop/pml-training.csv', row.names = 'X')
 raw_test  <- read.csv('~/Desktop/pml-testing.csv', row.names = 'X')
+
 
 dim(raw_train)
 dim(raw_test)
@@ -65,23 +67,84 @@ Given the dataset contains 6 users' activities, we would like to sample our trai
 ``` {r construct training set and validation set}
 library(caret)
 set.seed(110322)
-row_for_training = c()
-row_for_validation = c()
+training = data.frame()
+validation = data.frame()
 for (user in unique(filter_train$user_name)) {
   temp_filter_train = filter_train[filter_train$user_name == user,]
   inTrain = createDataPartition(y=temp_filter_train$classe, p=0.7, list=FALSE)
   
-  row_for_training = c(row_for_training, inTrain)
-  row_for_validation = c(row_for_validation, -inTrain)
-}
+  training = rbind(training, temp_filter_train[inTrain,])
+  validation = rbind(validation, temp_filter_train[-inTrain,])
 
-training = filter_train[row_for_training,]
-validation = filter_train[row_for_validation,]
+}
+```
+
+Then, We would like to use 10-fold cross validation. Caret has a function called trainControl to define such scheme.
+
+``` {r construct 10-fold}
+library(caret)
+set.seed(110322)
+train_control = trainControl(method="cv", number = 5)
 
 ```
 
 ### Model Construction
 
-We start with basic Linear Regression model, using all variables.
-``` {r Simple Linear Regression}
+We start with Multinomial Logistic Regression.
+
+``` {r Logistic Regression}
+model_lr = train(classe ~ ., data=training, trControl=train_control, method="multinom")
+predict_valiation_lr = predict(model_lr, newdata=validation)
+
+confusionMatrix(data=predict_valiation_lr, validation$classe)
 ```
+
+The Validation Accuracy of Multinomial Logistic Regreesion is only 65.75%. So I'm not so confident to test this model on out-of-sample dataset.
+
+We then go with Recursive Partition Tree, using all variables.
+``` {r rpart}
+model_rpart = train(classe ~ ., data = training,  method="rpart", trControl=train_control, control = list(maxdepth = 20))
+predict_valiation_rpart = predict(model_rpart, newdata=validation)
+
+confusionMatrix(data=predict_valiation_rpart, validation$classe)
+```
+
+Interestingly, the recursive partitioned classification tree can't even predict if a record belongs to class D!. Below is the tree visualization:
+
+``` {r rpart_tree}
+plot(model_rpart$finalModel, uniform=TRUE, main="Classification Tree")
+text(model_rpart$finalModel, use.n=TRUE, all=TRUE, cex=.8)
+```
+
+This tree plot tells us that this model can't even differentiate between Class D and remaining of the Class. So I'm not so confident on this model either.
+
+We then go with Random Forest, using all variables.
+
+``` {r RF}
+model_rf = train(classe ~ ., data = training, method="rf", ntree=25)
+predict_valiation_rf = predict(model_rf, validation)
+
+predict_test_rf = predict(model_rf, filter_test)
+
+confusionMatrix(data=predict_valiation_rf, validation$classe)
+```
+
+Amazingly, this RF model with number of trees 25 produces us validation accuracy of 99.68%!
+Then I make the prediction in testing dataset and try the Prediction Quiz, it predicts 19 out of 20 correct labels, which is 95% in out-of-sample dataset.
+
+Below is the feature importance plot.
+```{r RF_plot}
+library(randomForest)
+plot(varImp(model_rf),main="Feature Importance")
+```
+
+Below is the plot on # of Trees Vs. Error rate.
+``` {r RF_plot_1}
+library(randomForest)
+plot(model_rf$finalModel)
+
+```
+
+### Conclusion
+
+The model that I choose is the Random Forest Model, because it gives us the best out-of-sample accuracy.
