@@ -1,0 +1,57 @@
+---
+title: "Develop Data Product Course Project"
+author: "Jinge Zhang"
+date: "3/31/2020"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction
+
+- An Interactive Plotting Tool to Explore 'mtcars'
+- The Tool is plotting again 'mpg', which is Miles / (US) Gallon.
+- The Tool will illustrate us how mpg varies when changing the variable you picked. 
+
+
+
+## Data
+
+- mtcars is the R Built-in Data Set.
+
+- Example:
+``` {r cars}
+data('mtcars')
+head(mtcars)
+```
+
+## Example Plot
+``` {r plot}
+library(ggplot2)
+factor_columns = c("cyl", "vs", "am", "gear", "carb")
+names(factor_columns) = c("Number of Cylinders",
+                          "Engine (0 = V-shaped, 1 = straight)",
+                          "Transmission (0 = automatic, 1 = manual)", 
+                          "Number of Forward Gears", 
+                          "Number of Carburetors")
+
+for (c in factor_columns) {
+    mtcars[, c] = as.factor(mtcars[,c])
+}
+
+lst <- names(mtcars)
+
+my_plot <- ggplot(mtcars, aes_string(x="hp", y="mpg")) +
+            xlab("Gross Horsepower") +
+            ylab("Miles / (US) Gallon")
+
+my_plot = my_plot + geom_point(aes_string(color='cyl'))
+my_plot  + labs(color="Number of Cylinders")
+```
+
+## Link to the Tool
+- Shiny Application - https://jz588.shinyapps.io/develop_data_products_course_project/
+- Github - https://github.com/zhangjinge588/datasciencecoursera/tree/master/CourseProject/DevelopDataProductsCourseProject
+
