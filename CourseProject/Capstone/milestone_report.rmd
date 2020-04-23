@@ -1,0 +1,457 @@
+---
+title: "Milestone Report"
+author: "Jinge Zhang"
+date: "4/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache=TRUE)
+```
+
+## Milestone Report
+
+The report will include exploratory data analysis on the input datasets, aka news + blogs + twitter. For simplicity, I'm using English version to demostrate. However, the input datasets with other language should follow the same route with minimal modifications.
+
+
+## Load Data
+```{r Load Data}
+
+work_directory = "~/Downloads"
+data_news     = readLines(paste0(work_directory, "/final/en_US/en_US.news.txt"), skipNul = TRUE, n=-1L)
+data_blogs    = readLines(paste0(work_directory, "/final/en_US/en_US.blogs.txt"), skipNul = TRUE, n=-1L)
+data_twitter  = readLines(paste0(work_directory, "/final/en_US/en_US.twitter.txt"), skipNul = TRUE, encoding = "UTF16LE", n=-1L)
+
+
+
+```
+
+## Basic Data Summary
+
+``` {r Basic Data Summary}
+library(stringr)
+library(ggplot2)
+library(gridExtra)
+
+line_count_news    = length(data_news)
+line_count_blogs   = length(data_blogs)
+line_count_twitter = length(data_twitter)
+
+word_count_news    = sum(str_count(data_news, "\\S+"))
+word_count_blogs   = sum(str_count(data_blogs, "\\S+"))
+word_count_twitter = sum(str_count(data_twitter, "\\S+"))
+
+
+
+summary_df = data.frame(data_source=c("news", "blogs", "twitter"), 
+                        line_count=c(line_count_news, line_count_blogs, line_count_twitter), 
+                        word_count=c(word_count_news, word_count_blogs, word_count_twitter))
+
+print (summary_df)
+
+line_count_plot = ggplot(data=summary_df, aes(x=factor(data_source), y=line_count / 1e6)) +
+  geom_bar(stat="identity") +
+  labs(x="data source",
+       y = "# of lines in Millions",
+       title= "Line Count")
+
+
+
+word_count_plot = ggplot(data=summary_df, aes(x=factor(data_source), y=word_count / 1e6)) +
+  geom_bar(stat="identity") +
+  labs(x="data source",
+       y = "# of words  in Millions",
+       title= "Word Count")
+
+grid.arrange(line_count_plot, word_count_plot, ncol=2)
+
+```
+
+## Create Corpus with tokenization
+
+By utilizing the Text Mining Package **tm**, a corpus will be created, with the following tokenization pipelines:
+
+0. To Lowercase
+1. Strip White Space(s).
+2. Stem Words, based on [Porter's stemming algorithm.](http://snowball.tartarus.org/algorithms/porter/stemmer.html)
+3. Remove Language Specific Stopwords.
+4. Remove Numbers.
+5. Removing content that starts with "**http**", case insensitive. This step is to ensure removing URL related content mainly from Twitter feeds.
+6. Remove Puntuations.
+7. Remove 1-2 letter words.
+
+Due to different contexts among different sources, I create one corpus per data source. That is, one corpus for News, one corpus for Blogs and one corpus for Twitter Feeds.
+
+Since the raw data source has millions of lines per data source, I'll sample 5% of the data per source. Besides, the milestone report doesn't specify whether we need to use all of data to perform data analysis. If using all of the data source, it would fairly painful to see similar behaviors compared to a 5% sample in terms of illustrating the distribution of words, n-grams, etc. 
+
+
+
+``` {r Create Corpus, cache=TRUE}
+require(NLP)
+library(tm)
+Sys.setenv(TZ="GMT")
+
+set.seed(1994-01-10)
+
+
+data_news_sample    = sample(data_news,    line_count_news    * 0.05)
+data_blogs_sample   = sample(data_blogs,   line_count_blogs   * 0.05)
+data_twitter_sample = sample(data_twitter, line_count_twitter * 0.05)
+
+create_corpus <- function(data, language='en') {
+  
+  my_corpus <- VCorpus(VectorSource(data))
+  
+  my_corpus <- tm_map(my_corpus, content_transformer(tolower))
+
+  my_corpus <- tm_map(my_corpus, stripWhitespace)
+  
+  my_corpus <- tm_map(my_corpus, function(x) stemDocument(x, language))
+  
+  my_corpus <- tm_map(my_corpus, removeWords, stopwords(language))
+  
+  my_corpus <- tm_map(my_corpus, removeNumbers)
+  
+  my_corpus <- tm_map(my_corpus, content_transformer(function(x) gsub("http.*", "", x, ignore.case = TRUE)))
+  
+  my_corpus <- tm_map(my_corpus, function(x) removePunctuation(x, ucp=TRUE))
+  
+  my_corpus <- tm_map(my_corpus, content_transformer(function(x) gsub("[^[:alnum:][:blank:]+?&/\\-]", "", x)))
+  
+  my_corpus <- tm_map(my_corpus, content_transformer(function(x) gsub(" *\\b[[:alpha:]]{1,2}\\b *", " ", x)))
+  
+  my_corpus <- tm_map(my_corpus, stripWhitespace)
+  
+  my_corpus
+  
+}
+
+corpus_news    = create_corpus(data_news_sample, "en")
+corpus_blogs   = create_corpus(data_blogs_sample, "en")
+corpus_twitter = create_corpus(data_twitter_sample, "en")
+
+dtm_news    = DocumentTermMatrix(corpus_news)
+dtm_blogs   = DocumentTermMatrix(corpus_blogs)
+dtm_twitter = DocumentTermMatrix(corpus_twitter)
+
+inspect(dtm_news)
+
+
+```
+
+
+## Exploratory Analysis
+
+
+### Word Frequency
+
+Below are the plots of words with most frequencies.
+
+``` {r Word Frequency, fig.width = 10}
+library(slam)
+words_frequency_news    <- col_sums(dtm_news, na.rm=TRUE)
+words_frequency_blogs   <- col_sums(dtm_blogs, na.rm=TRUE)
+words_frequency_twitter <- col_sums(dtm_twitter, na.rm=TRUE)
+
+ord_news    <- order(words_frequency_news, decreasing=TRUE)
+ord_blogs   <- order(words_frequency_blogs, decreasing=TRUE)
+ord_twitter <- order(words_frequency_twitter, decreasing=TRUE)
+
+
+words_frequency_df_news = data.frame(word=names(words_frequency_news[ord_news[1:20]]),
+                                     frequency=words_frequency_news[ord_news[1:20]])
+
+words_frequency_df_blogs = data.frame(word=names(words_frequency_blogs[ord_blogs[1:20]]),
+                                     frequency=words_frequency_blogs[ord_blogs[1:20]])
+
+words_frequency_df_twitter = data.frame(word=names(words_frequency_twitter[ord_twitter[1:20]]),
+                                     frequency=words_frequency_twitter[ord_twitter[1:20]])
+
+words_frequency_plot_news = ggplot(data=words_frequency_df_news, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="word",
+       title= "Top 20 for News")
+
+words_frequency_plot_blogs = ggplot(data=words_frequency_df_blogs, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="word",
+       title= "Top 20 for Blogs")
+
+words_frequency_plot_twitter = ggplot(data=words_frequency_df_twitter, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="word",
+       title= "Top 20 for Twitter")
+
+
+grid.arrange(words_frequency_plot_news, 
+             words_frequency_plot_blogs, 
+             words_frequency_plot_twitter, 
+             ncol=3)
+
+```
+
+### How Many Unique Words to Achieve 50% & 90% Coverage.
+
+Below is the table and barplot for Unique Word Coverage, by different data sources.
+
+``` {r How Many Unique Words to Achieve 50% and 90% Coverage}
+
+sorted_words_frequency_news_in_percent = words_frequency_news[ord_news] / sum(words_frequency_news) * 100
+
+sorted_words_frequency_blogs_in_percent = words_frequency_blogs[ord_blogs] / sum(words_frequency_blogs) * 100
+
+sorted_words_frequency_twitter_in_percent = words_frequency_twitter[ord_twitter] / sum(words_frequency_twitter) * 100
+
+
+reach_coverage <- function(word_frequency, coverage_percent) {
+  i = 1
+  while (sum(word_frequency[1:i]) < coverage_percent) {
+    i = i + 1
+  }
+  i
+}
+
+num_unique_words_50_percent_coverage_news = reach_coverage(sorted_words_frequency_news_in_percent, 50)
+num_unique_words_90_percent_coverage_news = reach_coverage(sorted_words_frequency_news_in_percent, 90)
+
+num_unique_words_50_percent_coverage_blogs = reach_coverage(sorted_words_frequency_blogs_in_percent, 50)
+num_unique_words_90_percent_coverage_blogs = reach_coverage(sorted_words_frequency_blogs_in_percent, 90)
+
+num_unique_words_50_percent_coverage_twitter = reach_coverage(sorted_words_frequency_twitter_in_percent, 50)
+num_unique_words_90_percent_coverage_twitter = reach_coverage(sorted_words_frequency_twitter_in_percent, 90)
+
+total_num_unique_words_news    = length(sorted_words_frequency_news_in_percent)
+total_num_unique_words_blogs   = length(sorted_words_frequency_blogs_in_percent)
+total_num_unique_words_twitter = length(sorted_words_frequency_twitter_in_percent)
+
+
+coverage_df = data.frame(data_source=c("news", "blogs", "twitter"),
+                         fifty_percent_coverage=c(num_unique_words_50_percent_coverage_news,
+                                               num_unique_words_50_percent_coverage_blogs,
+                                               num_unique_words_50_percent_coverage_twitter),
+                         ninty_percent_coverage=c(num_unique_words_90_percent_coverage_news,
+                                               num_unique_words_90_percent_coverage_blogs,
+                                               num_unique_words_90_percent_coverage_twitter),
+                         total_num_unique_words=c(total_num_unique_words_news, 
+                                                  total_num_unique_words_blogs,
+                                                  total_num_unique_words_twitter))
+
+print (coverage_df)
+
+
+```
+
+
+``` {r barplot, fig.width = 12}
+
+unique_word_fifty_percent_coverage_plot = ggplot(data=coverage_df, aes(x=data_source, y=fifty_percent_coverage)) +
+  geom_bar(stat="identity") +
+  labs(x="data source",
+       y = "# of unique words",
+       title= "# of unique words to reach 50% Coverage")
+
+
+unique_word_ninty_percent_coverage_plot = ggplot(data=coverage_df, aes(x=data_source, y=ninty_percent_coverage)) +
+  geom_bar(stat="identity") +
+  labs(x="data source",
+       y = "# of unique words",
+       title= "# of unique words to reach 90% Coverage")
+
+total_num_unique_word_plot = ggplot(data=coverage_df, aes(x=data_source, y=total_num_unique_words)) +
+  geom_bar(stat="identity") +
+  labs(x="data source",
+       y = "# of unique words",
+       title= "Total # of unique words")
+
+grid.arrange(unique_word_fifty_percent_coverage_plot,
+             unique_word_ninty_percent_coverage_plot,
+             total_num_unique_word_plot,
+             ncol=3)
+
+
+
+```
+
+### N-gram
+
+By utilizing the NLP pakcage, I create Document Term Matrix for bi-gram and tri-gram.
+
+#### Bi-gram
+
+Below are the Top 20 Bi-gram frequencies.
+
+``` {r bi-gram}
+library(NLP)
+
+NgramTokenizer <-
+  function(x, n)
+    unlist(lapply(ngrams(words(x), n), paste, collapse = " "), use.names = FALSE)
+
+
+dtm_bigram_news    = DocumentTermMatrix(corpus_news, control = list(tokenize=function(x) NgramTokenizer(x, 2)))
+dtm_bigram_blogs   = DocumentTermMatrix(corpus_blogs, control = list(tokenize=function(x) NgramTokenizer(x, 2)))
+dtm_bigram_twitter = DocumentTermMatrix(corpus_twitter, control = list(tokenize=function(x) NgramTokenizer(x, 2)))
+
+
+
+
+```
+``` {r word frequency}
+top_n_word_frequency = function(dtm, n) {
+  
+  words_frequency    <- col_sums(dtm, na.rm=TRUE)
+
+  ord_words_frequency    <- order(words_frequency, decreasing=TRUE)
+  
+  
+  words_frequency_df = data.frame(word=names(words_frequency[ord_words_frequency[1:n]]),
+                                       frequency=words_frequency[ord_words_frequency[1:n]])
+  
+  words_frequency_df
+  
+}
+
+
+```
+
+``` {r bi-gram freq, fig.width=12}
+
+n = 20
+
+top_n_bigram_freqeuncy_news    = top_n_word_frequency(dtm_bigram_news, n)
+top_n_bigram_freqeuncy_blogs   = top_n_word_frequency(dtm_bigram_blogs, n)
+top_n_bigram_freqeuncy_twitter = top_n_word_frequency(dtm_bigram_twitter, n)
+
+
+bigram_frequency_plot_news = ggplot(data=top_n_bigram_freqeuncy_news, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="bigram",
+       title= "Top 20 for News")
+
+bigram_frequency_plot_blogs = ggplot(data=top_n_bigram_freqeuncy_blogs, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="bigram",
+       title= "Top 20 for Blogs")
+
+bigram_frequency_plot_twitter = ggplot(data=top_n_bigram_freqeuncy_twitter, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="bigram",
+       title= "Top 20 for Twitter")
+
+
+grid.arrange(bigram_frequency_plot_news, 
+             bigram_frequency_plot_blogs, 
+             bigram_frequency_plot_twitter, 
+             ncol=3)
+
+```
+
+## Tri-gram
+
+Below are the Top 20 Tri-gram frequencies.
+
+``` {r tri-gram}
+
+dtm_trigram_news    = DocumentTermMatrix(corpus_news,    control = list(tokenize=function(x) NgramTokenizer(x, 3)))
+dtm_trigram_blogs   = DocumentTermMatrix(corpus_blogs,   control = list(tokenize=function(x) NgramTokenizer(x, 3)))
+dtm_trigram_twitter = DocumentTermMatrix(corpus_twitter, control = list(tokenize=function(x) NgramTokenizer(x, 3)))
+
+
+```
+
+``` {r trigram freq, fig.width=12}
+
+n = 20
+
+top_n_trigram_freqeuncy_news    = top_n_word_frequency(dtm_trigram_news, n)
+top_n_trigram_freqeuncy_blogs   = top_n_word_frequency(dtm_trigram_blogs, n)
+top_n_trigram_freqeuncy_twitter = top_n_word_frequency(dtm_trigram_twitter, n)
+
+
+trigram_frequency_plot_news = ggplot(data=top_n_trigram_freqeuncy_news, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="trigram",
+       title= "Top 20 for News")
+
+trigram_frequency_plot_blogs = ggplot(data=top_n_trigram_freqeuncy_blogs, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="trigram",
+       title= "Top 20 for Blogs")
+
+trigram_frequency_plot_twitter = ggplot(data=top_n_trigram_freqeuncy_twitter, aes(x=reorder(word, frequency), y=frequency)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x="trigram",
+       title= "Top 20 for Twitter")
+
+
+grid.arrange(trigram_frequency_plot_news, 
+             trigram_frequency_plot_blogs, 
+             trigram_frequency_plot_twitter, 
+             ncol=3)
+
+```
+
+### Bi-Gram Co-occurances
+
+The following bi-grams coexist in top 20 Bi-gram frequencies in various data sources:
+
+``` {r intersect bi-gram}
+
+print (intersect(as.character(top_n_bigram_freqeuncy_twitter$word), intersect(as.character(top_n_bigram_freqeuncy_news$word), as.character(top_n_bigram_freqeuncy_blogs$word))))
+
+```
+
+### Tri-Gram Co-occurances
+
+The following tri-grams coexist from News and Blogs, in top 20 Tri-gram frequencies.
+
+``` {r intersect tri-gram news and blogs}
+
+print (intersect(as.character(top_n_trigram_freqeuncy_news$word),  as.character(top_n_trigram_freqeuncy_blogs$word)))
+
+```
+
+The following tri-grams coexist from News and Twitter, in top 20 Tri-gram frequencies.
+
+``` {r intersect tri-gram news and twitter}
+
+print (intersect(as.character(top_n_trigram_freqeuncy_news$word),  as.character(top_n_trigram_freqeuncy_twitter$word)))
+
+```
+
+The following tri-grams coexist from Blogs and Twitter, in top 20 Tri-gram frequencies.
+
+``` {r intersect tri-gram twitter and blogs}
+
+print (intersect(as.character(top_n_trigram_freqeuncy_twitter$word),  as.character(top_n_trigram_freqeuncy_blogs$word)))
+
+```
+
+
+### Interesting Insights from n-grams.
+
+From the top 20 N-grams we can see the different tones from different data sources.e.g. Twitter top Tri-grams are phrases like Happy Mother's Day, Happy New Year, etc. whereas that from News are things like President Barack Obama, New York City, will take place, etc.
+
+This sentimental variations somewhat explain why we need to build corpus per data source, because of the different context it would take place.
+
+On a side note, it is very interesting that "township borad district" tops the Tri-gram frequencies, which is something that I don't expect to beat "new york city" in terms of the occurances in News.
+
+
+## Next Steps
+
+1. Will revise the tokenization strategy back and forth when finding anything weired.
+2. Will think about how to incorporate the full size dataset into the corpus.
+3. Will design the language model as the Capstone proceeds.
+
+
+
+
