@@ -135,8 +135,6 @@ dtm_blogs   = DocumentTermMatrix(corpus_blogs)
 dtm_twitter = DocumentTermMatrix(corpus_twitter)
 
 inspect(dtm_news)
-
-
 ```
 
 
@@ -296,8 +294,6 @@ dtm_bigram_blogs   = DocumentTermMatrix(corpus_blogs, control = list(tokenize=fu
 dtm_bigram_twitter = DocumentTermMatrix(corpus_twitter, control = list(tokenize=function(x) NgramTokenizer(x, 2)))
 
 
-
-
 ```
 ``` {r word frequency}
 top_n_word_frequency = function(dtm, n) {
@@ -361,7 +357,6 @@ Below are the Top 20 Tri-gram frequencies.
 dtm_trigram_news    = DocumentTermMatrix(corpus_news,    control = list(tokenize=function(x) NgramTokenizer(x, 3)))
 dtm_trigram_blogs   = DocumentTermMatrix(corpus_blogs,   control = list(tokenize=function(x) NgramTokenizer(x, 3)))
 dtm_trigram_twitter = DocumentTermMatrix(corpus_twitter, control = list(tokenize=function(x) NgramTokenizer(x, 3)))
-
 
 ```
 
@@ -451,7 +446,5 @@ On a side note, it is very interesting that "township borad district" tops the T
 1. Will revise the tokenization strategy back and forth when finding anything weired.
 2. Will think about how to incorporate the full size dataset into the corpus.
 3. Will design the language model as the Capstone proceeds.
-
-
 
 

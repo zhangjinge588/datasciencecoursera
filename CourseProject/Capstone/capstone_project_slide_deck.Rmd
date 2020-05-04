@@ -1,0 +1,51 @@
+---
+title: "Capstone Slide Deck"
+author: "Jinge Zhang"
+date: "5/3/2020"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction
+
+- An Interactive Tool to fetch the next word.
+- Construct Multi-Million Document Corpus from News, Blogs and Twitter.
+- Leverage Stupid Backoff Algorithm and Acheive nearly Real-Time Results.
+
+
+## Algorithm
+
+- Tokenize input data sources by the following strategies:
+  - Case Insensitivity
+  - Puncuation and other symbols removal.
+  - Remove links, numbers, extra white spaces.
+
+- Construct Unigram, Bigram and Trigram model and cache them.
+
+- The stupid backoff algorithm behaves as the following:
+  - Iterate from trigram to unigram.
+  - Generating the score based on what is matching.
+  - Returns the words with top N scores. 
+
+- Reference - https://www.aclweb.org/anthology/D07-1090.pdf
+
+## User Interface
+
+- A Text Input, 2 Slider Controls.
+- Type your words in Text Input
+- Configure 2 parameters in sidebar sliders.
+  - Choose your N value to select top N most likely next word.
+  - Choose the discount value for punishing unknown n-grams.
+
+## Example
+![UI Example](example.png){#id .class width=120% height=200%}
+
+
+## Link to the Tool
+- Shiny Application - https://jz588.shinyapps.io/data_science_capstone_project_app/
+- Github - https://github.com/zhangjinge588/datasciencecoursera/tree/master/CourseProject/Capstone
+
+
